@@ -12,23 +12,23 @@ require YatimaStdLib from git
 def ffiC := "ffi.c"
 def ffiO := "ffi.o"
 
-target importTarget (pkg : Package) : FilePath := do
-  let oFile := pkg.oleanDir / ffiO
-  let srcJob ← inputFile $ pkg.dir / ffiC
+target importTarget pkg : FilePath := do
+  let oFile := pkg.irDir / ffiO
+  let srcJob ← inputFile <| pkg.dir / "C" / "ffi.c"
   buildFileAfterDep oFile srcJob fun srcFile => do
     let flags := #["-I", (← getLeanIncludeDir).toString, "-fPIC"]
-    compileO ffiC oFile srcFile flags
+    compileO oFile srcFile flags
 
-extern_lib ffi (pkg : Package) := do
-  let name := nameToStaticLib "ffi"
+extern_lib ffi pkg := do
   let job ← fetch <| pkg.target ``importTarget
-  buildStaticLib (pkg.buildDir / defaultLibDir / name) #[job]
+  let libFile := pkg.nativeLibDir / nameToStaticLib "ffi"
+  buildStaticLib libFile #[job]
 
-extern_lib rust_ffi (pkg : Package) := do
+extern_lib rust_ffi pkg := do
   proc { cmd := "cargo", args := #["build", "--release"], cwd := pkg.dir }
   let name := nameToStaticLib "rust_ffi"
   let srcPath := pkg.dir / "target" / "release" / name
-  IO.FS.createDirAll pkg.libDir
-  let tgtPath := pkg.libDir / name
+  IO.FS.createDirAll pkg.nativeLibDir
+  let tgtPath := pkg.nativeLibDir / name
   IO.FS.writeBinFile tgtPath (← IO.FS.readBinFile srcPath)
   return (pure tgtPath)
